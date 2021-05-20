@@ -1,7 +1,164 @@
 require 'pry'
 require 'pry-byebug'
 
+# class Human < Player
+#   def set_name
+#     n = ""
+#     loop do
+#       puts "What's your name?"
+#       n = gets.chomp
+#       break unless n.empty?
+#       puts "Sorry, must enter your name."
+#     end
+
+#     self.name = n
+#   end
+
+#   def choose
+#     choice = nil
+#     loop do
+#       move_options = Move::VALUES
+
+#       puts "Please choose one of the following: #{move_options.join(', ')}."
+#       choice = gets.chomp.capitalize
+#       break if move_options.include?(choice)
+#       puts "Sorry, invalid choice."
+#     end
+
+#     self.move = Move.new(choice)
+#   end
+# end
+
+# class Computer < Player
+#   def set_name
+#     self.name = ['R2D2', 'Hal', 'Chappie', 'Sonny', 'X-94)B'].sample
+#   end
+
+#   def choose
+#     self.move = Move.new(Move::VALUES.sample)
+#   end
+# end
+
+# class Move
+#   VALUES = ['Rock', 'Paper', 'Scissors', 'Lizard', 'Spock']
+#   DEFEATS = {  VALUES[0] => [VALUES[2], VALUES[3]],
+#                VALUES[1] => [VALUES[0], VALUES[4]],
+#                VALUES[2] => [VALUES[1], VALUES[3]],
+#                VALUES[3] => [VALUES[1], VALUES[4]],
+#                VALUES[4] => [VALUES[0], VALUES[2]] }
+
+#   def initialize(value)
+#     self.value = value
+#   end
+
+#   def >(other_move)
+#     DEFEATS[value].include?(other_move.value)
+#   end
+
+#   def <(other_move)
+#     other_move > self
+#   end
+
+#   def to_s
+#     value
+#   end
+
+#   protected
+
+#   attr_accessor :value
+# end
+
+module Choosable
+  VALUES = ['Rock', 'Paper', 'Scissors', 'Lizard', 'Spock']
+
+  DEFEATS = {  VALUES[0] => [VALUES[2], VALUES[3]],
+               VALUES[1] => [VALUES[0], VALUES[4]],
+               VALUES[2] => [VALUES[1], VALUES[3]],
+               VALUES[3] => [VALUES[1], VALUES[4]],
+               VALUES[4] => [VALUES[0], VALUES[2]] }
+
+  def self.choose(personality = nil)
+    choice_class_name = if personality
+                          determine_class_choice(personality)
+                        else
+                          VALUES.sample
+                        end
+
+    choice_class_str = "Choosable::#{choice_class_name}"
+    Object.const_get(choice_class_str).new
+  end
+
+  def self.calculate_choice(personality, choice_num)
+    counter = 0
+    choice = ""
+    personality.each do |move, probability|
+      counter += probability
+      if counter >= choice_num
+        choice = move
+        break
+      end
+    end
+
+    choice
+  end
+
+  def self.determine_class_choice(personality)
+    choice_num = Random.rand(1..100)
+
+    calculate_choice(personality, choice_num)
+  end
+
+  class Choice
+    def >(other_move)
+      DEFEATS[value].include?(other_move.value)
+    end
+
+    def <(other_move)
+      other_move > self
+    end
+
+    def to_s
+      value
+    end
+
+    protected
+
+    attr_reader :value
+  end
+
+  class Rock < Choice
+    def initialize
+      @value = "Rock"
+    end
+  end
+
+  class Paper < Choice
+    def initialize
+      @value = "Paper"
+    end
+  end
+
+  class Scissors < Choice
+    def initialize
+      @value = "Scissors"
+    end
+  end
+
+  class Lizard < Choice
+    def initialize
+      @value = "Lizard"
+    end
+  end
+
+  class Spock < Choice
+    def initialize
+      @value = "Spock"
+    end
+  end
+end
+
 class Player
+  include Choosable
   attr_accessor :move, :name
 
   def initialize
@@ -25,65 +182,38 @@ class Human < Player
   def choose
     choice = nil
     loop do
-      move_options = Move::VALUES
+      choice_options = Choosable::VALUES
 
-      puts "Please choose one of the following: #{move_options.join(', ')}."
-      choice = gets.chomp
-      break if Move::VALUES.include?(choice)
+      puts "Please choose one of the following: #{choice_options.join(', ')}."
+      choice = gets.chomp.capitalize
+      break if choice_options.include?(choice)
       puts "Sorry, invalid choice."
     end
 
-    self.move = Move.new(choice)
+    self.move = Object.const_get("Choosable::#{choice}").new
   end
 end
 
 class Computer < Player
+  PERSONALITIES = { "R2D2" => { "Rock" => 34, "Paper" => 33, "Scissors" => 33 },
+                    "Hal" => { "Scissors" => 50, "Lizard" => 50 },
+                    "C3PO" => { "Spock" => 50, "Paper" => 30, "Rock" => 20 },
+                    "Wall-E" => { "Lizard" => 100 },
+                    "NCC-1701 Computer" => { "Spock" => 100 } }
+
   def set_name
-    self.name = ['R2D2', 'Hal', 'Chappie', 'Sonny', 'X-94)B'].sample
+    names = ['R2D2', 'Hal', 'C3P0', 'Wall-E', 'NCC-1701 Computer']
+    names << 'Rando Botrissian'
+    self.name = names.sample
+    @personality = PERSONALITIES[name]
   end
 
   def choose
-    self.move = Move.new(Move::VALUES.sample)
+    self.move = Choosable.choose(personality)
   end
+
+  attr_reader :personality
 end
-
-class Move
-  VALUES = ['rock', 'paper', 'scissors', 'lizard', 'spock']
-  DEFEATS = {  VALUES[0] => [VALUES[2], VALUES[3]],
-               VALUES[1] => [VALUES[0], VALUES[4]],
-               VALUES[2] => [VALUES[1], VALUES[3]],
-               VALUES[3] => [VALUES[1], VALUES[4]],
-               VALUES[4] => [VALUES[0], VALUES[2]] }
-
-  def initialize(value)
-    self.value = value
-  end
-
-  def >(other_move)
-    DEFEATS[value].include?(other_move.value)
-  end
-
-  def <(other_move)
-    other_move > self
-  end
-
-  def to_s
-    value
-  end
-
-  protected
-
-  attr_accessor :value
-end
-
-class Rule
-  def initialize
-    # not sure what the "state" of a rule object should be
-  end
-end
-
-# not sure where "compare" goes yet
-def compare(move1, move2); end
 
 class Scoreboard
   def initialize(players, target_score)
@@ -136,7 +266,7 @@ class Scoreboard
 end
 
 class History
-  SEPARATING_LINE_WIDTH = 40
+  SEPARATING_LINE_WIDTH = 45
 
   def initialize(history_header = nil)
     @has_header = !history_header.nil?
