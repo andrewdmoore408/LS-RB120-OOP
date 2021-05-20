@@ -90,6 +90,28 @@ module Choosable
   end
 end
 
+module InputValidation
+  YES_NO = ['y', 'yes', 'n', 'no']
+
+  def self.retrieve(prompt, options, error_msg, case_insensitive = true)
+    input = ""
+
+    loop do
+      puts prompt
+
+      input = gets.chomp
+
+      input.downcase! if case_insensitive
+      valid_inputs = case_insensitive ? options.map(&:downcase) : options
+
+      break if valid_inputs.include?(input)
+      puts error_msg
+    end
+
+    input
+  end
+end
+
 class Player
   include Choosable
   attr_accessor :move, :name
@@ -113,15 +135,11 @@ class Human < Player
   end
 
   def choose
-    choice = nil
-    loop do
-      choice_options = Choosable::VALUES
+    choice_prompt = "Choose one of the following: " \
+                    "#{Choosable::VALUES.join(', ')}"
 
-      puts "Please choose one of the following: #{choice_options.join(', ')}."
-      choice = gets.chomp.capitalize
-      break if choice_options.include?(choice)
-      puts "Sorry, invalid choice."
-    end
+    choice = InputValidation.retrieve(choice_prompt, Choosable::VALUES,\
+                                      "That's an invalid choice.").capitalize
 
     self.move = Object.const_get("Choosable::#{choice}").new
   end
@@ -312,28 +330,24 @@ class RPSGame
   end
 
   def play_another_game?
-    answer = nil
-    loop do
-      puts "Would you like to continue the match? (y/n)"
-      answer = gets.chomp
-      break if ['y', 'n'].include?(answer.downcase)
-      puts "Sorry, must enter y or n"
-    end
+    prompt_str = "Would you like to continue this match with another game? " \
+                 "(y/n)"
+    another_game = InputValidation.retrieve(prompt_str, \
+                                            InputValidation::YES_NO, \
+                                            "You must enter y or n")
 
-    answer == "y"
+    another_game == "y"
   end
 
   def play_another_match?
-    answer = nil
-    loop do
-      puts "Would you like to play another match to see who gets to " \
-           "#{POINTS_NEEDED_WIN_MATCH} wins first?"
-      answer = gets.chomp
-      break if ['y', 'n'].include?(answer.downcase)
-      puts "Sorry, must enter y or n"
-    end
+    prompt_str = "Would you like to play another match to see who " \
+                           "gets to #{POINTS_NEEDED_WIN_MATCH} wins first?"
 
-    answer == "y"
+    another_match = InputValidation.retrieve(prompt_str, \
+                                             InputValidation::YES_NO, \
+                                             "You must enter y or n")
+
+    another_match == "y"
   end
 
   def init_program
