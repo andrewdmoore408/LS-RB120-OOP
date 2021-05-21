@@ -1,6 +1,3 @@
-require 'pry'
-require 'pry-byebug'
-
 module Choosable
   VALUES = ['Rock', 'Paper', 'Scissors', 'Lizard', 'Spock']
   VALID_INPUTS = ['Rock', 'r', 'Paper', 'p', 'Scissors', 's', 'Lizard', 'l', \
