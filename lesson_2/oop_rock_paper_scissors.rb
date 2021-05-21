@@ -3,23 +3,16 @@ require 'pry-byebug'
 
 module Choosable
   VALUES = ['Rock', 'Paper', 'Scissors', 'Lizard', 'Spock']
-
+  VALID_INPUTS = ['Rock', 'r', 'Paper', 'p', 'Scissors', 's', 'Lizard', 'l', \
+                  'Spock', 'k']
+  VALUES_USER_TEXT = ['(R)ock', '(P)aper', '(S)cissors', '(L)izard', 'Spoc(k)']
+  FULL_VALUES = { 'r' => VALUES[0], 'p' => VALUES[1], 's' => VALUES[2],
+                  'l' => VALUES[3], 'k' => VALUES[4] }
   DEFEATS = {  VALUES[0] => [VALUES[2], VALUES[3]],
                VALUES[1] => [VALUES[0], VALUES[4]],
                VALUES[2] => [VALUES[1], VALUES[3]],
                VALUES[3] => [VALUES[1], VALUES[4]],
                VALUES[4] => [VALUES[0], VALUES[2]] }
-
-  def self.choose(personality = nil)
-    choice_class_name = if personality
-                          determine_class_choice(personality)
-                        else
-                          VALUES.sample
-                        end
-
-    choice_class_str = "Choosable::#{choice_class_name}"
-    Object.const_get(choice_class_str).new
-  end
 
   def self.calculate_choice(personality, choice_num)
     counter = 0
@@ -33,6 +26,21 @@ module Choosable
     end
 
     choice
+  end
+
+  def self.choose(personality = nil)
+    choice_class_name = if personality
+                          determine_class_choice(personality)
+                        else
+                          VALUES.sample
+                        end
+
+    choice_class_str = "Choosable::#{choice_class_name}"
+    Object.const_get(choice_class_str).new
+  end
+
+  def self.convert_abbreviation(abbreviation)
+    FULL_VALUES[abbreviation.downcase]
   end
 
   def self.determine_class_choice(personality)
@@ -122,6 +130,20 @@ class Player
 end
 
 class Human < Player
+  def choose
+    choice_prompt = "Choose one of the following: " \
+                    "#{Choosable::VALUES_USER_TEXT.join(', ')}"
+
+    choice = InputValidation.retrieve(choice_prompt, Choosable::VALID_INPUTS,\
+                                      "That's an invalid choice.").capitalize
+
+    if choice.length == 1
+      choice = Choosable.convert_abbreviation(choice)
+    end
+
+    self.move = Object.const_get("Choosable::#{choice}").new
+  end
+
   def set_name
     n = ""
     loop do
@@ -133,16 +155,6 @@ class Human < Player
 
     self.name = n
   end
-
-  def choose
-    choice_prompt = "Choose one of the following: " \
-                    "#{Choosable::VALUES.join(', ')}"
-
-    choice = InputValidation.retrieve(choice_prompt, Choosable::VALUES,\
-                                      "That's an invalid choice.").capitalize
-
-    self.move = Object.const_get("Choosable::#{choice}").new
-  end
 end
 
 class Computer < Player
@@ -152,21 +164,22 @@ class Computer < Player
                     "Wall-E" => { "Lizard" => 100 },
                     "NCC-1701 Computer" => { "Spock" => 100 } }
 
-  def set_name
-    names = ['R2D2', 'Hal', 'C3P0', 'Wall-E', 'NCC-1701 Computer']
-    names << 'Rando Botrissian'
-    self.name = names.sample
-    @personality = PERSONALITIES[name]
-  end
-
   def choose
     self.move = Choosable.choose(personality)
+  end
+
+  def set_name
+    names = ['R2D2', 'Hal', 'C3P0', 'Wall-E', 'NCC-1701 Computer',\
+             'Rando Botrissian']
+    self.name = names.sample
+    @personality = PERSONALITIES[name]
   end
 
   attr_reader :personality
 end
 
 class Scoreboard
+  SCOREBOARD_WIDTH = 40
   def initialize(players, target_score)
     @scores = Hash.new
     players.each { |player| scores[player] = 0 }
@@ -177,10 +190,19 @@ class Scoreboard
     scores[player] += 1
   end
 
+  def display
+    line_separator = "-" * SCOREBOARD_WIDTH
+    puts line_separator
+    puts
+    scores.each { |player, score| print "#{player.name}: #{score}          " }
+    puts
+    puts line_separator
+  end
+
   def info
     info_string = ""
     scores.each do |player, score|
-      info_string << "#{player.name}: #{score}     "
+      info_string << "#{player.name}: #{score}\t"
     end
     info_string
   end
@@ -193,21 +215,8 @@ class Scoreboard
     scores.key(target_score)
   end
 
-  def display
-    line_separator = "-" * 40
-    puts line_separator
-    puts
-    scores.each { |player, score| print "#{player.name}: #{score}\t\t" }
-    puts
-    puts line_separator
-  end
-
   def zeros!
     scores.transform_values! { |_| 0 }
-  end
-
-  def zeros?
-    scores.all? { |_, score| score == 0 }
   end
 
   private
@@ -225,14 +234,21 @@ class History
     @list_num = 0
   end
 
-  def to_s
-    output_list(history)
-    output_list(current_list) unless current_list.length < 2
+  def add_banner(banner)
+    banner_text = banner.center(SEPARATING_LINE_WIDTH)
+    new_list(banner_text, false)
   end
 
-  def new_section(section_heading)
-    section_text = section_heading.center(SEPARATING_LINE_WIDTH)
-    new_list(section_text, false)
+  def add_items(*items)
+    items.flatten.each do |item|
+      current_list << "#{list_num}-#{current_list_row_num}. #{item}"
+      self.current_list_row_num += 1
+    end
+  end
+
+  def display
+    puts "\nHere's your game history:\n"
+    to_s
   end
 
   def new_list(list_header, increase_list_num = true)
@@ -247,22 +263,10 @@ class History
     current_list << list_header unless list_header.nil?
   end
 
-  def add_items(*items)
-    items.flatten.each do |item|
-      current_list << "#{list_num}-#{current_list_row_num}. #{item}"
-      self.current_list_row_num += 1
-    end
-  end
-
-  def display_current_list
-    current_list.each do |item|
-      puts item
-    end
-  end
-
-  def display
-    puts "\n"
-    to_s
+  def to_s
+    output_list(history)
+    output_list(current_list) unless current_list.length < 2
+    puts "-" * SEPARATING_LINE_WIDTH + "\n\n"
   end
 
   private
@@ -283,8 +287,7 @@ end
 
 class RPSGame
   TIE = :tie
-  POINTS_NEEDED_WIN_MATCH = 3
-  attr_accessor :human, :computer
+  POINTS_NEEDED_WIN_MATCH = 5
 
   def initialize
     clear_screen
@@ -294,29 +297,31 @@ class RPSGame
     @program_history = History.new("Rock, Paper, Scissors initiated!")
   end
 
+  def play
+    init_program
+
+    loop do
+      # Start of a new match
+      program_history.add_banner("~~~Start of a new match~~~")
+
+      play_match_games
+
+      display_match_winner_text
+
+      break if already_quit || quit?
+      reset_match
+    end
+    end_program
+  end
+
+  private
+
+  attr_accessor :human, :computer, :match_scores, :quit, :already_quit, \
+                :game_winner
+  attr_reader :program_history
+
   def clear_screen
     system 'clear'
-  end
-
-  def display_welcome_message
-    puts "Welcome to Rock, Paper, Scissors, Lizard, Spock!"
-  end
-
-  def display_goodbye_message
-    puts "Thanks for playing Rock, Paper, Scissors, Lizard, Spock. Goodbye!"
-  end
-
-  def display_moves
-    puts "#{human.name} chose #{human.move}"
-    puts "#{computer.name} chose #{computer.move}"
-  end
-
-  def display_game_winner
-    if game_winner == TIE
-      puts "It's a tie!"
-    else
-      puts "#{game_winner.name} won!"
-    end
   end
 
   def determine_game_winner
@@ -327,6 +332,65 @@ class RPSGame
                        else
                          TIE
                        end
+  end
+
+  def display_game_winner
+    if game_winner == TIE
+      puts "It's a tie!"
+    else
+      puts "#{game_winner.name} won!"
+    end
+  end
+
+  def display_goodbye_message
+    puts "Thanks for playing Rock, Paper, Scissors, Lizard, Spock. Goodbye!"
+  end
+
+  def display_match_winner_text
+    return unless match_scores.winner?
+    puts "\n\nEND OF THE MATCH! #{match_scores.winner.name} wins!\n"
+  end
+
+  def display_moves
+    puts "#{human.name} chose #{human.move}"
+    puts "#{computer.name} chose #{computer.move}"
+  end
+
+  def display_welcome_message
+    puts "Welcome to Rock, Paper, Scissors, Lizard, Spock!"
+  end
+
+  def end_program
+    program_history.display
+    display_goodbye_message
+  end
+
+  def game_end?
+    match_scores.winner? || quit?
+  end
+
+  def game_history
+    this_game = []
+    this_game << "#{human.name} chose #{human.move}..."
+    this_game << "#{computer.name} chose #{computer.move}..."
+    this_game << if game_winner == TIE
+                   "This game was a tie."
+                 else
+                   "#{game_winner.name} won this game."
+                 end
+    this_game << "Scores: #{match_scores.info}"
+
+    this_game
+  end
+
+  def init_program
+    clear_screen
+    display_welcome_message
+  end
+
+  def make_moves
+    human.choose
+    computer.choose
   end
 
   def play_another_game?
@@ -350,50 +414,6 @@ class RPSGame
     another_match == "y"
   end
 
-  def init_program
-    clear_screen
-    display_welcome_message
-  end
-
-  def reset
-    match_scores.zeros!
-    clear_screen
-  end
-
-  def end_program
-    puts "Here's your game history:"
-    program_history.display
-    display_goodbye_message
-  end
-
-  def make_moves
-    human.choose
-    computer.choose
-  end
-
-  def run_game
-    program_history.new_list("Start of a new game")
-    match_scores.display
-
-    make_moves
-    display_moves
-
-    determine_game_winner
-    display_game_winner
-
-    match_scores.add_point(game_winner) unless game_winner == TIE
-    program_history.add_items(game_history)
-  end
-
-  def game_end?
-    match_scores.winner? || quit?
-  end
-
-  def display_match_winner_text
-    return unless match_scores.winner?
-    puts "\n\nEND OF THE MATCH! #{match_scores.winner.name} wins!\n"
-  end
-
   def play_match_games
     loop do
       run_game
@@ -401,29 +421,10 @@ class RPSGame
       break if game_end?
       clear_screen
     end
+
+    return unless match_scores.winner?
+    program_history.add_banner("#{match_scores.winner.name} wins the match!")
   end
-
-  def play
-    init_program
-
-    loop do
-      # Start of a new match
-      program_history.new_section("~~~Start of a new match~~~")
-
-      play_match_games
-
-      display_match_winner_text
-
-      break if already_quit || quit?
-      reset
-    end
-    end_program
-  end
-
-  private
-
-  attr_accessor :match_scores, :quit, :already_quit, :game_winner
-  attr_reader :program_history
 
   def quit?
     if match_scores.winner? && play_another_match?
@@ -436,18 +437,23 @@ class RPSGame
     end
   end
 
-  def game_history
-    this_game = []
-    this_game << "#{human.name} chose #{human.move}..."
-    this_game << "#{computer.name} chose #{computer.move}..."
-    this_game << if game_winner == TIE
-                   "This game was a tie."
-                 else
-                   "#{game_winner.name} won this game."
-                 end
-    this_game << "Scores: #{match_scores.info}"
+  def reset_match
+    match_scores.zeros!
+    clear_screen
+  end
 
-    this_game
+  def run_game
+    program_history.new_list("New game started")
+    match_scores.display
+
+    make_moves
+    display_moves
+
+    determine_game_winner
+    display_game_winner
+
+    match_scores.add_point(game_winner) unless game_winner == TIE
+    program_history.add_items(game_history)
   end
 end
 
