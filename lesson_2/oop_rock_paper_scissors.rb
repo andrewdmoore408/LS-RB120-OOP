@@ -1,10 +1,12 @@
 module Choosable
   VALUES = ['Rock', 'Paper', 'Scissors', 'Lizard', 'Spock']
-  VALID_INPUTS = ['Rock', 'r', 'Paper', 'p', 'Scissors', 's', 'Lizard', 'l', \
-                  'Spock', 'k']
+  # VALID_INPUTS = ['Rock', 'r', 'Paper', 'p', 'Scissors', 's', 'Lizard', 'l', \
+  #                 'Spock', 'k']
   VALUES_USER_TEXT = ['(R)ock', '(P)aper', '(S)cissors', '(L)izard', 'Spoc(k)']
   FULL_VALUES = { 'r' => VALUES[0], 'p' => VALUES[1], 's' => VALUES[2],
                   'l' => VALUES[3], 'k' => VALUES[4] }
+  VALID_INPUTS = FULL_VALUES.keys + FULL_VALUES.values
+
   DEFEATS = {  VALUES[0] => [VALUES[2], VALUES[3]],
                VALUES[1] => [VALUES[0], VALUES[4]],
                VALUES[2] => [VALUES[1], VALUES[3]],
@@ -104,7 +106,7 @@ module InputValidation
     loop do
       puts prompt
 
-      input = gets.chomp
+      input = gets.chomp.strip
 
       input.downcase! if case_insensitive
       valid_inputs = case_insensitive ? options.map(&:downcase) : options
@@ -145,7 +147,7 @@ class Human < Player
     n = ""
     loop do
       puts "What's your name?"
-      n = gets.chomp
+      n = gets.chomp.strip
       break unless n.empty?
       puts "Sorry, must enter your name."
     end
