@@ -1,17 +1,16 @@
-require 'pry'
-
 class Board
   WINNING_LINES = [[1, 2, 3], [4, 5, 6], [7, 8, 9]] + # rows
                   [[1, 4, 7], [2, 5, 8], [3, 6, 9]] + # columns
                   [[1, 5, 9], [3, 5, 7]]              # diagonals
 
   def initialize
-    @squares = { }
+    @squares = {}
     (1..9).each do |key|
       @squares[key] = Square.new
     end
   end
 
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
   def draw
     puts "     |     |"
     puts "  #{squares[1]}  |  #{squares[2]}  |  #{squares[3]}"
@@ -26,11 +25,13 @@ class Board
 
     puts "     |     |"
   end
+  # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
   def winning_marker
     # returns winning marker or nil
     WINNING_LINES.each do |line|
-      return squares[line[0]].marker if winning_marker_found?(squares.values_at(*line))
+      return squares[line[0]].marker if winning_marker_found?\
+        (squares.values_at(*line))
     end
     nil
   end
@@ -58,6 +59,7 @@ class Board
   end
 
   private
+
   attr_accessor :squares
 
   def winning_marker_found?(squares)
@@ -102,32 +104,18 @@ class TTTGame
     @board = Board.new
     @human = Player.new(HUMAN_MARKER)
     @computer = Player.new(COMPUTER_MARKER)
-    @current_player = FIRST_TO_MOVE == :Human ? human :
-                                        computer
+    @current_player = if FIRST_TO_MOVE == :Human
+                        human
+                      else
+                        computer
+                      end
   end
 
   def play
-    display_welcome_message
     clear
-
-    loop do
-      display_board
-
-      loop do
-        current_player_moves
-        break if board.someone_won? || board.full?
-
-        alternate_current_player
-        clear_screen_and_display_board if human_turn?
-      end
-
-      display_result
-      break unless play_again?
-
-      reset
-      display_play_again_message
-    end
-  display_goodbye_message
+    display_welcome_message
+    main_game
+    display_goodbye_message
   end
 
   def play_again?
@@ -144,19 +132,20 @@ class TTTGame
 
   def reset
     board.reset
-    current_player = human
+    self.current_player = human
     clear
   end
 
   private
+
   attr_accessor :current_player
 
   def alternate_current_player
-    if human_turn?
-      self.current_player = computer
-    else
-      self.current_player = human
-    end
+    self.current_player = if human_turn?
+                            computer
+                          else
+                            human
+                          end
   end
 
   def clear
@@ -231,6 +220,27 @@ class TTTGame
 
   def human_turn?
     current_player == human
+  end
+
+  def main_game
+    loop do
+      display_board
+      player_move
+      display_result
+      break unless play_again?
+      reset
+      display_play_again_message
+    end
+  end
+
+  def player_move
+    loop do
+      current_player_moves
+      break if board.someone_won? || board.full?
+
+      alternate_current_player
+      clear_screen_and_display_board if human_turn?
+    end
   end
 end
 
