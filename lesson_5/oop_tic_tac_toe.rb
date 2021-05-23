@@ -1,3 +1,21 @@
+module Format
+  def self.joinor(options, separator: ',', word: "or")
+    joinored = case options.length
+           when 1
+            options
+           when 2
+            "#{options.first} #{word} #{options.last}"
+           else
+             text = options.map do |option|
+                      "#{option}#{separator}"
+                    end
+             text.pop
+             text.push(word, options.last)
+             text.join(' ')
+           end
+  end
+end
+
 class Board
   WINNING_LINES = [[1, 2, 3], [4, 5, 6], [7, 8, 9]] + # rows
                   [[1, 4, 7], [2, 5, 8], [3, 6, 9]] + # columns
@@ -98,6 +116,7 @@ class TTTGame
   HUMAN_MARKER = "X"
   COMPUTER_MARKER = "O"
   FIRST_TO_MOVE = :Human
+
   attr_reader :board, :human, :computer
 
   def initialize
@@ -205,7 +224,7 @@ class TTTGame
   end
 
   def human_moves
-    puts "Choose a square (#{board.unmarked_keys.join(', ')})"
+    puts "Choose a square (#{Display.joinor(board.unmarked_keys)})"
 
     square = nil
 
