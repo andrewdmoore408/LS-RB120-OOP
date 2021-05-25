@@ -112,7 +112,7 @@ class Board
     end
   end
 
-  def center_available?
+  def center_open?
     unmarked_keys.include?(Board::CENTER_SQUARE)
   end
 
@@ -212,13 +212,26 @@ end
 class Player
   attr_reader :marker, :name
 
-  def initialize(marker)
-    @marker = marker
+  def initialize
     @name = set_name
+    @marker = set_marker
   end
 end
 
 class Human < Player
+  def set_marker
+    marker = nil
+
+    loop do
+      puts "Choose one character to be your marker on the board: "
+      marker = gets.chomp.strip
+      break unless marker.empty? || marker.length > 1
+      puts "Invalid--you have to enter exactly one character!"
+    end
+
+    marker
+  end
+
   def set_name
     name = nil
 
@@ -235,6 +248,17 @@ end
 
 class Computer < Player
   NAMES = ['Ticky-Tac 3000', 'Hal', 'Robo-Toe', 'Type-O (Positive)', 'Wall-E']
+  DEFAULT_MARKER = 'O'
+  ALTERNATE_MARKER = 'L'
+
+  def initialize(default_marker: true)
+    @name = set_name
+    @marker = if default_marker
+                DEFAULT_MARKER
+              else
+                ALTERNATE_MARKER
+              end
+  end
 
   def set_name
     NAMES.sample
@@ -244,16 +268,15 @@ end
 class TTTGame
   include Format
 
-  HUMAN_MARKER = "X"
-  COMPUTER_MARKER = "O"
   FIRST_TO_MOVE = :Human
   POINTS_NEEDED_WIN_MATCH = 5
 
   def initialize
+    clear
     display_welcome_message
     @board = Board.new
-    @human = Human.new(HUMAN_MARKER)
-    @computer = Computer.new(COMPUTER_MARKER)
+    @human = Human.new
+    @computer = Computer.new(determine_computer_marker)
     @match_scores = Scoreboard.new([human, computer], POINTS_NEEDED_WIN_MATCH)
     @current_player = determine_starting_player
     @already_quit = false
@@ -314,6 +337,10 @@ class TTTGame
                           end
   end
 
+  def can_win?(marker)
+    board.square_at_risk?(marker)
+  end
+
   def clear
     system 'clear'
   end
@@ -321,10 +348,6 @@ class TTTGame
   def clear_screen_and_display_scores_and_board
     clear
     display_scores_and_board
-  end
-
-  def computer_can_win?
-    board.square_at_risk?(computer.marker)
   end
 
   def computer_moves
@@ -338,6 +361,12 @@ class TTTGame
     else
       computer_moves
     end
+  end
+
+  def determine_computer_marker
+    default = !(human.marker == "O")
+
+    {default_marker: default}
   end
 
   def determine_starting_player
@@ -376,9 +405,9 @@ class TTTGame
     clear_screen_and_display_scores_and_board
 
     case board.winning_marker
-    when HUMAN_MARKER
+    when human.marker
       puts "You won!"
-    when COMPUTER_MARKER
+    when computer.marker
       puts "Computer won!"
     else
       puts "It's a tie!"
@@ -393,11 +422,11 @@ class TTTGame
   end
 
   def find_computer_square
-    if computer_can_win?
+    if can_win?(computer.marker)
       board.square_at_risk(computer.marker)
-    elsif human_can_win?
+    elsif can_win?(human.marker)
       board.square_at_risk(human.marker)
-    elsif board.center_available?
+    elsif board.center_open?
       Board::CENTER_SQUARE
     else
       board.unmarked_keys.sample
@@ -406,10 +435,6 @@ class TTTGame
 
   def match_won?
     match_scores.winner?
-  end
-
-  def human_can_win?
-    board.square_at_risk?(human.marker)
   end
 
   def human_moves
@@ -464,7 +489,7 @@ class TTTGame
   end
 
   def which_player(marker)
-    if marker == HUMAN_MARKER
+    if marker == human.marker
       human
     else
       computer
