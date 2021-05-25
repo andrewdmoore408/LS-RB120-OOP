@@ -103,12 +103,34 @@ class Board
   WINNING_LINES = [[1, 2, 3], [4, 5, 6], [7, 8, 9]] + # rows
                   [[1, 4, 7], [2, 5, 8], [3, 6, 9]] + # columns
                   [[1, 5, 9], [3, 5, 7]]              # diagonals
+  CENTER_SQUARE = 5
 
   def initialize
     @squares = {}
     (1..9).each do |key|
       @squares[key] = Square.new
     end
+  end
+
+  def center_available?
+    unmarked_keys.include?(Board::CENTER_SQUARE)
+  end
+
+  def square_at_risk(marker)
+    WINNING_LINES.each do |line|
+      line_markers = squares.values_at(*line).map(&:marker)
+
+      if line_markers.count(Square::INITIAL_MARKER) == 1 && \
+         line_markers.count(marker) == 2
+        line.each { |square| return square if squares[square].unmarked? }
+      end
+    end
+
+    nil
+  end
+
+  def square_at_risk?(marker)
+    !!square_at_risk(marker)
   end
 
   # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
@@ -194,8 +216,6 @@ class Player
     @marker = marker
     @name = set_name
   end
-
-  # def set_name; puts " in Player.set_name"; end
 end
 
 class Human < Player
@@ -218,10 +238,6 @@ class Computer < Player
 
   def set_name
     NAMES.sample
-  end
-
-  def move
-
   end
 end
 
@@ -307,8 +323,13 @@ class TTTGame
     display_scores_and_board
   end
 
+  def computer_can_win?
+    board.square_at_risk?(computer.marker)
+  end
+
   def computer_moves
-    board[board.unmarked_keys.sample] = computer.marker
+    square = find_computer_square
+    board[square] = computer.marker
   end
 
   def current_player_moves
@@ -371,18 +392,33 @@ class TTTGame
     puts "#{match_scores.winner.name} won the match!"
   end
 
+  def find_computer_square
+    if computer_can_win?
+      board.square_at_risk(computer.marker)
+    elsif human_can_win?
+      board.square_at_risk(human.marker)
+    elsif board.center_available?
+      Board::CENTER_SQUARE
+    else
+      board.unmarked_keys.sample
+    end
+  end
+
   def match_won?
     match_scores.winner?
+  end
+
+  def human_can_win?
+    board.square_at_risk?(human.marker)
   end
 
   def human_moves
     loop do
       puts "Choose a square (#{Format.joinor(board.unmarked_keys)})"
       square = gets.chomp.strip
-      # binding.pry
-      if integer?(square) && board.unmarked_keys.include?(square.to_i)
+
+      if valid_move_input?(square)
         board[square.to_i] = human.marker
-        # byebug
         break
       end
 
@@ -443,6 +479,10 @@ class TTTGame
       alternate_current_player
       clear_screen_and_display_scores_and_board if human_turn?
     end
+  end
+
+  def valid_move_input?(square)
+    integer?(square) && board.unmarked_keys.include?(square.to_i)
   end
 end
 
