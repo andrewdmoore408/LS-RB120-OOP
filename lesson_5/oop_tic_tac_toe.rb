@@ -3,6 +3,7 @@
   scores are displayed twice for some reason...?
 =end
 require 'pry'
+require 'pry-byebug'
 module Format
   def self.joinor(items, separator: ',', word: "or")
     if items.length <= 2
@@ -189,9 +190,38 @@ end
 class Player
   attr_reader :marker, :name
 
-  def initialize(marker, name)
+  def initialize(marker)
     @marker = marker
-    @name = name
+    @name = set_name
+  end
+
+  # def set_name; puts " in Player.set_name"; end
+end
+
+class Human < Player
+  def set_name
+    name = nil
+
+    loop do
+      puts "Enter your name: "
+      name = gets.chomp.strip
+      break unless name.empty?
+      puts "You can't have an empty name!"
+    end
+
+    name
+  end
+end
+
+class Computer < Player
+  NAMES = ['Ticky-Tac 3000', 'Hal', 'Robo-Toe', 'Type-O (Positive)', 'Wall-E']
+
+  def set_name
+    NAMES.sample
+  end
+
+  def move
+
   end
 end
 
@@ -204,9 +234,10 @@ class TTTGame
   POINTS_NEEDED_WIN_MATCH = 5
 
   def initialize
+    display_welcome_message
     @board = Board.new
-    @human = Player.new(HUMAN_MARKER, "hoomun")
-    @computer = Player.new(COMPUTER_MARKER, "Ticky-Tacmaster 3000")
+    @human = Human.new(HUMAN_MARKER)
+    @computer = Computer.new(COMPUTER_MARKER)
     @match_scores = Scoreboard.new([human, computer], POINTS_NEEDED_WIN_MATCH)
     @current_player = determine_starting_player
     @already_quit = false
@@ -214,7 +245,6 @@ class TTTGame
 
   def play
     clear
-    display_welcome_message
     play_match
     display_goodbye_message
   end
@@ -346,21 +376,26 @@ class TTTGame
   end
 
   def human_moves
-    puts "Choose a square (#{Format.joinor(board.unmarked_keys)})"
-
-    square = nil
-
     loop do
-      square = gets.chomp.to_i
-      break if board.unmarked_keys.include?(square)
+      puts "Choose a square (#{Format.joinor(board.unmarked_keys)})"
+      square = gets.chomp.strip
+      # binding.pry
+      if integer?(square) && board.unmarked_keys.include?(square.to_i)
+        board[square.to_i] = human.marker
+        # byebug
+        break
+      end
+
       puts "Sorry, that's not a valid choice."
     end
-
-    board[square] = human.marker
   end
 
   def human_turn?
     current_player == human
+  end
+
+  def integer?(str_input)
+    str_input.to_i.to_s == str_input
   end
 
   def main_game
