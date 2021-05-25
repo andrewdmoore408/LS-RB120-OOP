@@ -1,18 +1,100 @@
+=begin
+  todo: would you like to play another match? isn't quitting upon n entry
+  scores are displayed twice for some reason...?
+=end
+require 'pry'
 module Format
-  def self.joinor(options, separator: ',', word: "or")
-    joinored = case options.length
-           when 1
-            options
-           when 2
-            "#{options.first} #{word} #{options.last}"
-           else
-             text = options.map do |option|
-                      "#{option}#{separator}"
-                    end
-             text.pop
-             text.push(word, options.last)
-             text.join(' ')
-           end
+  def self.joinor(items, separator: ',', word: "or")
+    if items.length <= 2
+      joinor_small(items, word)
+    else
+      joinor_large(items, separator, word)
+    end
+  end
+
+  def self.joinor_large(items, separator, word)
+    text = items.map { |item| "#{item}#{separator}" }
+    text.pop
+    text.push(word, items.last)
+    text.join(' ')
+  end
+
+  def self.joinor_small(items, word)
+    return items.first if items.length == 1
+
+    "#{items.first} #{word} #{items.last}"
+  end
+end
+
+module InputValidation
+  YES_NO = ['y', 'yes', 'n', 'no']
+
+  def self.retrieve(prompt, options, error_msg, case_insensitive = true)
+    input = ""
+
+    loop do
+      puts prompt
+
+      input = gets.chomp.strip
+
+      input.downcase! if case_insensitive
+      valid_inputs = case_insensitive ? options.map(&:downcase) : options
+
+      break if valid_inputs.include?(input)
+      puts error_msg
+    end
+
+    input
+  end
+end
+
+class Scoreboard
+  SCOREBOARD_WIDTH = 40
+  def initialize(players, target_score)
+    @@scores = Hash.new
+    players.each { |player| scores[player] = 0 }
+    @target_score = target_score
+  end
+
+  def add_point(player)
+    scores[player] += 1
+  end
+
+  def display
+    line_separator = "-" * SCOREBOARD_WIDTH
+    puts line_separator
+    puts
+    scores.each { |player, score| print "#{player.name}: #{score}          " }
+    puts
+    puts line_separator
+  end
+
+  def info
+    info_string = ""
+    scores.each do |player, score|
+      info_string << "#{player.name}: #{score}\t"
+    end
+    info_string
+  end
+
+  def winner?
+    scores.any? { |_, score| score == target_score }
+  end
+
+  def winner
+    scores.key(target_score)
+  end
+
+  def zeros!
+    scores.transform_values! { |_| 0 }
+  end
+
+  private
+
+  attr_reader :target_score
+
+  def scores
+    @@scores
   end
 end
 
@@ -105,51 +187,69 @@ class Square
 end
 
 class Player
-  attr_reader :marker
+  attr_reader :marker, :name
 
-  def initialize(marker)
+  def initialize(marker, name)
     @marker = marker
+    @name = name
   end
 end
 
 class TTTGame
+  include Format
+
   HUMAN_MARKER = "X"
   COMPUTER_MARKER = "O"
   FIRST_TO_MOVE = :Human
-
-  attr_reader :board, :human, :computer
+  POINTS_NEEDED_WIN_MATCH = 5
 
   def initialize
     @board = Board.new
-    @human = Player.new(HUMAN_MARKER)
-    @computer = Player.new(COMPUTER_MARKER)
-    @current_player = if FIRST_TO_MOVE == :Human
-                        human
-                      else
-                        computer
-                      end
+    @human = Player.new(HUMAN_MARKER, "hoomun")
+    @computer = Player.new(COMPUTER_MARKER, "Ticky-Tacmaster 3000")
+    @match_scores = Scoreboard.new([human, computer], POINTS_NEEDED_WIN_MATCH)
+    @current_player = determine_starting_player
+    @already_quit = false
   end
 
   def play
     clear
     display_welcome_message
-    main_game
+    play_match
     display_goodbye_message
   end
 
-  def play_again?
-    answer = nil
-    loop do
-      puts "Would you like to play again? (y/n)"
-      answer = gets.chomp.downcase
-      break if %w(y n).include?(answer)
-      puts "Sorry, must be y or n"
-    end
-
-    answer == 'y'
+  def quit_match?
+    quit_match = end_match?
+    self.already_quit = true if quit_match
+    quit_match
   end
 
-  def reset
+  def end_match?
+    puts "Current scores are #{match_scores.info}"
+    puts "First player to #{POINTS_NEEDED_WIN_MATCH} wins."
+    prompt = "Would you like to continue this round? (y/n)"
+    err_msg = "You must enter y or n"
+    answer = InputValidation.retrieve(prompt, InputValidation::YES_NO, err_msg)
+
+    answer == 'n'
+  end
+
+  def quit_program?
+    prompt = "Would you like to play another match? (y/n)"
+    err_msg = "Sorry, you must enter y or n"
+    answer = InputValidation.retrieve(prompt, InputValidation::YES_NO, err_msg)
+
+    # binding.pry
+    answer == 'n'
+  end
+
+  def reset_match
+    match_scores.zeros!
+    reset_game
+  end
+
+  def reset_game
     board.reset
     self.current_player = human
     clear
@@ -157,7 +257,8 @@ class TTTGame
 
   private
 
-  attr_accessor :current_player
+  attr_accessor :current_player, :already_quit, :match_scores
+  attr_reader :board, :human, :computer
 
   def alternate_current_player
     self.current_player = if human_turn?
@@ -171,9 +272,9 @@ class TTTGame
     system 'clear'
   end
 
-  def clear_screen_and_display_board
+  def clear_screen_and_display_scores_and_board
     clear
-    display_board
+    display_scores_and_board
   end
 
   def computer_moves
@@ -188,6 +289,14 @@ class TTTGame
     end
   end
 
+  def determine_starting_player
+    if FIRST_TO_MOVE == :Human
+      human
+    else
+      computer
+    end
+  end
+
   def display_welcome_message
     puts "Welcome to Tic Tac Toe!"
     puts
@@ -198,20 +307,22 @@ class TTTGame
     puts
   end
 
-  def display_board
+  def display_scores_and_board
+    puts "First player to #{POINTS_NEEDED_WIN_MATCH} wins takes the match."
+    match_scores.display
     puts "You're a #{human.marker}. Computer is a #{computer.marker}."
     puts
     board.draw
     puts
   end
 
-  def display_play_again_message
-    puts "Let's play again!"
+  def display_play_another_game_message
+    puts "Let's keep playing!"
     puts
   end
 
-  def display_result
-    clear_screen_and_display_board
+  def display_game_result
+    clear_screen_and_display_scores_and_board
 
     case board.winning_marker
     when HUMAN_MARKER
@@ -223,8 +334,19 @@ class TTTGame
     end
   end
 
+  def display_match_result
+    puts
+    puts "With a final score of: #{match_scores.info}"
+    puts
+    puts "#{match_scores.winner.name} won the match!"
+  end
+
+  def match_won?
+    match_scores.winner?
+  end
+
   def human_moves
-    puts "Choose a square (#{Display.joinor(board.unmarked_keys)})"
+    puts "Choose a square (#{Format.joinor(board.unmarked_keys)})"
 
     square = nil
 
@@ -243,22 +365,48 @@ class TTTGame
 
   def main_game
     loop do
-      display_board
-      player_move
-      display_result
-      break unless play_again?
-      reset
-      display_play_again_message
+      display_scores_and_board
+      players_make_moves
+
+      display_game_result
+      match_scores.add_point(which_player(board.winning_marker)) \
+        if board.someone_won?
+
+      break if match_won? || quit_match?
+
+      reset_game
+      display_play_another_game_message
     end
   end
 
-  def player_move
+  def play_match
+    # need loop to check for win
+    # ask player if they want to play another match
+    # prompt to quit or continue at the end of a game
+    loop do
+      main_game
+      break if already_quit
+      display_match_result if match_won?
+      break if quit_program?
+      reset_match
+    end
+  end
+
+  def which_player(marker)
+    if marker == HUMAN_MARKER
+      human
+    else
+      computer
+    end
+  end
+
+  def players_make_moves
     loop do
       current_player_moves
       break if board.someone_won? || board.full?
 
       alternate_current_player
-      clear_screen_and_display_board if human_turn?
+      clear_screen_and_display_scores_and_board if human_turn?
     end
   end
 end
