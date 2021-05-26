@@ -249,7 +249,7 @@ end
 class Computer < Player
   NAMES = ['Ticky-Tac 3000', 'Hal', 'Robo-Toe', 'Type-O (Positive)', 'Wall-E']
   DEFAULT_MARKER = 'O'
-  ALTERNATE_MARKER = 'L'
+  ALTERNATE_MARKER = 'E'
 
   def initialize(default_marker: true)
     @name = set_name
@@ -366,7 +366,7 @@ class TTTGame
   def determine_computer_marker
     default = !(human.marker == "O")
 
-    {default_marker: default}
+    { default_marker: default }
   end
 
   def determine_starting_player
@@ -421,6 +421,7 @@ class TTTGame
     puts "#{match_scores.winner.name} won the match!"
   end
 
+  # rubocop:disable Metrics/AbcSize
   def find_computer_square
     if can_win?(computer.marker)
       board.square_at_risk(computer.marker)
@@ -432,6 +433,7 @@ class TTTGame
       board.unmarked_keys.sample
     end
   end
+  # rubocop:enable Metrics/AbcSize
 
   def match_won?
     match_scores.winner?
