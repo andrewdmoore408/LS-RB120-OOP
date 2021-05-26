@@ -1,9 +1,3 @@
-=begin
-  todo: would you like to play another match? isn't quitting upon n entry
-  scores are displayed twice for some reason...?
-=end
-require 'pry'
-require 'pry-byebug'
 module Format
   def self.joinor(items, separator: ',', word: "or")
     if items.length <= 2
@@ -165,7 +159,7 @@ class Board
 
   def reset
     (1..9).each do |key|
-      @squares[key] = Square.new
+      squares[key] = Square.new
     end
   end
 
@@ -178,7 +172,7 @@ class Board
   end
 
   def []=(key, marker)
-    @squares[key].marker = marker
+    squares[key].marker = marker
   end
 
   private
@@ -226,7 +220,7 @@ class Human < Player
       puts "Choose one character to be your marker on the board: "
       marker = gets.chomp.strip
       break unless marker.empty? || marker.length > 1
-      puts "Invalid--you have to enter exactly one character!"
+      puts "Invalid--please enter exactly one character."
     end
 
     marker
@@ -266,9 +260,8 @@ class Computer < Player
 end
 
 class TTTGame
-  include Format
+  include Format, InputValidation
 
-  FIRST_TO_MOVE = :Human
   POINTS_NEEDED_WIN_MATCH = 5
 
   def initialize
@@ -286,42 +279,6 @@ class TTTGame
     clear
     play_match
     display_goodbye_message
-  end
-
-  def quit_match?
-    quit_match = end_match?
-    self.already_quit = true if quit_match
-    quit_match
-  end
-
-  def end_match?
-    puts "Current scores are #{match_scores.info}"
-    puts "First player to #{POINTS_NEEDED_WIN_MATCH} wins."
-    prompt = "Would you like to continue this round? (y/n)"
-    err_msg = "You must enter y or n"
-    answer = InputValidation.retrieve(prompt, InputValidation::YES_NO, err_msg)
-
-    answer == 'n'
-  end
-
-  def quit_program?
-    prompt = "Would you like to play another match? (y/n)"
-    err_msg = "Sorry, you must enter y or n"
-    answer = InputValidation.retrieve(prompt, InputValidation::YES_NO, err_msg)
-
-    # binding.pry
-    answer == 'n'
-  end
-
-  def reset_match
-    match_scores.zeros!
-    reset_game
-  end
-
-  def reset_game
-    board.reset
-    self.current_player = human
-    clear
   end
 
   private
@@ -375,9 +332,9 @@ class TTTGame
     err_msg = "You must select one of these three options"
     turn = InputValidation.retrieve(prompt, [human_name, "Computer", "Random"],\
                                     err_msg)
-    case turn
-    when human_name then human
-    when "Computer" then computer
+    case turn.downcase
+    when human_name.downcase then human
+    when "computer" then computer
     else [human, computer].sample
     end
   end
@@ -426,6 +383,16 @@ class TTTGame
     puts "#{match_scores.winner.name} won the match!"
   end
 
+  def end_match?
+    puts "Current scores are #{match_scores.info}"
+    puts "First player to #{POINTS_NEEDED_WIN_MATCH} wins."
+    prompt = "Would you like to continue this round? (y/n)"
+    err_msg = "You must enter y or n"
+    answer = InputValidation.retrieve(prompt, YES_NO, err_msg)
+
+    answer == 'n'
+  end
+
   # rubocop:disable Metrics/AbcSize
   def find_computer_square
     if can_win?(computer.marker)
@@ -439,10 +406,6 @@ class TTTGame
     end
   end
   # rubocop:enable Metrics/AbcSize
-
-  def match_won?
-    match_scores.winner?
-  end
 
   def human_moves
     loop do
@@ -482,6 +445,10 @@ class TTTGame
     end
   end
 
+  def match_won?
+    match_scores.winner?
+  end
+
   def play_match
     # need loop to check for win
     # ask player if they want to play another match
@@ -495,14 +462,6 @@ class TTTGame
     end
   end
 
-  def which_player(marker)
-    if marker == human.marker
-      human
-    else
-      computer
-    end
-  end
-
   def players_make_moves
     loop do
       current_player_moves
@@ -513,8 +472,40 @@ class TTTGame
     end
   end
 
+  def quit_match?
+    quit_match = end_match?
+    self.already_quit = true if quit_match
+    quit_match
+  end
+
+  def quit_program?
+    prompt = "Would you like to play another match? (y/n)"
+    err_msg = "Sorry, you must enter y or n"
+    answer = InputValidation.retrieve(prompt, YES_NO, err_msg)
+
+    answer == 'n'
+  end
+
+  def reset_match
+    match_scores.zeros!
+    reset_game
+  end
+
+  def reset_game
+    board.reset
+    clear
+  end
+
   def valid_move_input?(square)
     integer?(square) && board.unmarked_keys.include?(square.to_i)
+  end
+
+  def which_player(marker)
+    if marker == human.marker
+      human
+    else
+      computer
+    end
   end
 end
 
