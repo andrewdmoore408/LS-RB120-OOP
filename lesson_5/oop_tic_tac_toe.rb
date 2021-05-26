@@ -278,7 +278,7 @@ class TTTGame
     @human = Human.new
     @computer = Computer.new(determine_computer_marker)
     @match_scores = Scoreboard.new([human, computer], POINTS_NEEDED_WIN_MATCH)
-    @current_player = determine_starting_player
+    @current_player = determine_starting_player(human.name)
     @already_quit = false
   end
 
@@ -369,11 +369,16 @@ class TTTGame
     { default_marker: default }
   end
 
-  def determine_starting_player
-    if FIRST_TO_MOVE == :Human
-      human
-    else
-      computer
+  def determine_starting_player(human_name)
+    prompt = "Who would you like to go first? " \
+             "(\"#{human_name}\", \"Computer\", or \"Random\"?)"
+    err_msg = "You must select one of these three options"
+    turn = InputValidation.retrieve(prompt, [human_name, "Computer", "Random"],\
+                                    err_msg)
+    case turn
+    when human_name then human
+    when "Computer" then computer
+    else [human, computer].sample
     end
   end
 
