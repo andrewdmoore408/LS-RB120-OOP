@@ -19,7 +19,6 @@ module Hand
   LINE = "-" * LINE_WIDTH
 
   def total
-    # binding.pry
     aces, non_aces = cards.partition(&:ace?)
     non_ace_total = non_aces.reduce(0) { |memo, card| memo + card.value }
 
@@ -50,12 +49,16 @@ module Hand
     puts LINE
   end
 
+  def reset_hand!
+    self.cards = nil
+  end
+
   def hit(card)
     cards << card
   end
 
   def take_cards(cards)
-    @cards = cards
+    self.cards = cards
   end
 end
 
@@ -74,7 +77,7 @@ module InputValidation
       valid_inputs = case_insensitive ? options.map(&:downcase) : options
 
       break if valid_inputs.include?(input)
-      puts error_msg
+      puts "\n#{error_msg}"
     end
 
     input
@@ -89,6 +92,10 @@ class Participant
   def initialize(name)
     @name = name
   end
+
+  private
+
+  attr_writer :cards
 end
 
 class Player < Participant
@@ -102,7 +109,6 @@ class Player < Participant
     loop do
       puts "Choose player name:"
       name = gets.chomp.strip
-     # binding.pry
       break unless name_error?(name)
       puts "You must enter a valid name."
     end
@@ -116,7 +122,7 @@ class Player < Participant
     name_error = false
 
     if input.downcase.include?("dealer")
-      dealer_name_error
+      display_name_contains_dealer_error
       name_error = true
     elsif input.empty?
       name_error = true
@@ -125,7 +131,7 @@ class Player < Participant
     name_error
   end
 
-  def dealer_name_error
+  def display_name_contains_dealer_error
     spaced_output("Your name can't have the word \"dealer\" in it!")
   end
 end
@@ -173,13 +179,16 @@ class Deck
     dealt
   end
 
-  def reset
+  # rubocop:disable Lint/UselessAssignment
+  def reset!
     deck = reference_deck
   end
+  # rubocop:enable Lint/UselessAssignment
 
   private
 
-  attr_reader :deck, :reference_deck
+  attr_accessor :deck
+  attr_reader :reference_deck
 
   def make_deck
     card_strs = RANKS.product(SUITS)
@@ -222,7 +231,7 @@ class Card
   attr_reader :suit, :rank
 end
 
-class Game
+class TwentyOne
   include InputValidation, OutputSpacer
 
   STANDARD_LINE_SPACE = 1
@@ -235,18 +244,31 @@ class Game
     @dealer = Dealer.new("Dealer")
   end
 
-  def start
-    deal_cards
-    show_cards_before_dealer_turn
-    player_turn
-    dealer_turn unless player.busted?
-    game_result
+  def play
+    loop do
+      deal_cards
+      show_cards_before_dealer_turn
+      player_turn
+      dealer_turn unless player.busted?
+      game_result
+      break unless another_game?
+      reset
+    end
+
+    display_goodbye_message
   end
 
   private
 
   attr_accessor :busted
   attr_reader :deck, :player, :dealer
+
+  def another_game?
+    continue = get_valid_input("Would you like to play another game?", YES_NO,\
+                               "You must enter (y)es or (n)o.")
+
+    continue.downcase.start_with?('y')
+  end
 
   def check_for_player_bust
     return unless player.busted?
@@ -377,6 +399,13 @@ class Game
     player.total == dealer.total
   end
 
+  def reset
+    spaced_output("Let's play again!")
+    deck.reset!
+    player.reset_hand!
+    dealer.reset_hand!
+  end
+
   def show_all_cards
     clear
     dealer.display_cards
@@ -388,8 +417,6 @@ class Game
     dealer.display_only_one_card
     player.display_cards
   end
-
-
 end
 
-Game.new.start
+TwentyOne.new.play
